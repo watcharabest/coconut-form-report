@@ -10,7 +10,7 @@ export default function InputForm() {
     date: new Date().toISOString().split('T')[0], // format YYYY-MM-DD
     purchasePrice: '',
     soldQuantity: '',
-    sellPrice: ''
+    sellPrice: 50
   });
 
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ export default function InputForm() {
         date: new Date().toISOString().split('T')[0],
         purchasePrice: '',
         soldQuantity: '',
-        sellPrice: ''
+        sellPrice: 50
       });
 
     } catch (error) {
