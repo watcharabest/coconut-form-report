@@ -2,6 +2,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { ListFilter, Calendar, ArrowUpDown, Filter, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
+// ✅ Import DatePicker และ CSS
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function TablePage() {
     const [data, setData] = useState([]);
@@ -9,13 +12,13 @@ export default function TablePage() {
 
     // --- State Filter & Sort ---
     const [filterType, setFilterType] = useState('all');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(new Date());
     const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
     // --- State สำหรับ Pagination ---
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
-
+    
     const fetchData = async () => {
         try {
             const response = await axios.get('/api/transactions');
@@ -151,17 +154,18 @@ export default function TablePage() {
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Calendar size={16} className="text-gray-500" />
                                 </div>
-                                <input
-                                    type={filterType === 'year' ? "number" : (filterType === 'month' ? "month" : "date")}
-                                    value={filterType === 'year' ? selectedDate.split('-')[0] : (filterType === 'month' ? selectedDate.slice(0, 7) : selectedDate)}
-                                    onChange={(e) => {
-                                        let val = e.target.value;
-                                        if (filterType === 'year') val = `${val}-01-01`;
-                                        if (filterType === 'month') val = `${val}-01`;
-                                        setSelectedDate(val);
-                                    }}
-                                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500"
-                                />
+                                <DatePicker
+                                    selected={selectedDate}
+                                    onChange={(date) => setSelectedDate(date)}
+                                    locale="th"
+                                    dateFormat={
+                                        filterType === 'year' ? "yyyy" : 
+                                        (filterType === 'month' ? "MM/yyyy" : "dd/MM/yyyy")
+                                    }
+                                    showYearPicker={filterType === 'year'}
+                                    showMonthYearPicker={filterType === 'month'}
+                                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
+                                    />
                             </div>
                         )}
                     </div>
