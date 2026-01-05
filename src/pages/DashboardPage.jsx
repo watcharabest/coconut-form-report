@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
-    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area
+    LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, LabelList
 } from 'recharts';
 import { LayoutDashboard, TrendingUp, DollarSign, Package, Filter } from 'lucide-react';
 
@@ -38,6 +38,12 @@ export default function DashboardPage() {
         };
         fetchData();
     }, []);
+
+    const formatK = (num) => {
+        if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`; // เผื่อถึงล้าน (M)
+        if (num >= 1000) return `${(num / 1000).toFixed(1)}k`; // พัน (k)
+        return num; // ถ้าน้อยกว่าพัน ให้แสดงเลขเดิม
+    };
 
     // --- 0. เตรียมข้อมูลสำหรับ Dropdown เลือกปี (ดึงจากข้อมูลจริง) ---
     const availableYears = useMemo(() => {
@@ -191,7 +197,7 @@ export default function DashboardPage() {
                     สรุปยอด {selectedYear === 'All' ? 'ทุกปี' : `ปี ${parseInt(selectedYear) + 543}`}
                     {selectedMonth !== 'All' && ` เดือน${thaiMonths.find(m => m.id == selectedMonth)?.name}`}
                 </h2>
-                <div className="h-[350px] w-full text-xs">
+                <div className="h-[350px] w-full text-xs min-w-0">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={monthlyData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -203,9 +209,19 @@ export default function DashboardPage() {
                                 labelStyle={{ color: '#333' }}
                             />
                             <Legend />
-                            <Bar yAxisId="left" dataKey="totalCost" name="รวมต้นทุน" fill="#fca5a5" radius={[4, 4, 0, 0]} barSize={20} />
-                            <Bar yAxisId="left" dataKey="netProfit" name="กำไรสุทธิ" fill="#16a34a" radius={[4, 4, 0, 0]} barSize={20} />
-                            <Area yAxisId="right" type="monotone" dataKey="totalQty" name="จำนวนขาย (ลูก)" fill="#ffedd5" stroke="#f97316" strokeWidth={2} />
+                            <Bar yAxisId="left" dataKey="totalCost" name="รวมต้นทุน" fill="#fca5a5" radius={[4, 4, 0, 0]} barSize={20}>
+                                {/* ✅ เพิ่ม LabelList สำหรับต้นทุน */}
+                                <LabelList dataKey="totalCost" position="top" formatter={formatK} fill="#9ca3af" fontSize={10} />
+                            </Bar>
+                            <Bar yAxisId="left" dataKey="netProfit" name="กำไรสุทธิ" fill="#16a34a" radius={[4, 4, 0, 0]} barSize={20}>
+                                {/* ✅ เพิ่ม LabelList สำหรับกำไร */}
+                                <LabelList dataKey="netProfit" position="top" formatter={formatK} fill="#16a34a" fontSize={10} fontWeight="bold" />
+                            </Bar>
+
+                            <Area yAxisId="right" type="monotone" dataKey="totalQty" name="จำนวนขาย (ลูก)" fill="#ffedd5" stroke="#f97316" strokeWidth={2}>
+                                {/* ✅ เพิ่ม LabelList สำหรับจำนวนลูก */}
+                                <LabelList dataKey="totalQty" position="top" formatter={formatK} fill="#f97316" fontSize={10} offset={10} />
+                            </Area>
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
@@ -214,8 +230,8 @@ export default function DashboardPage() {
             {/* --- Section 3: Price Trend --- */}
             <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
                 <h2 className="text-lg font-bold text-gray-700 mb-4">แนวโน้มราคาซื้อ-ขาย</h2>
-                <div className="h-[300px] w-full text-xs">
-                    <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] w-full text-xs min-w-0">
+                    <ResponsiveContainer>
                         <LineChart data={lineChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="date" />
