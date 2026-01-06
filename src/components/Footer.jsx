@@ -18,10 +18,10 @@ export default function Footer() {
       </Link>
 
       {/* 2. หน้าสต็อก */}
-      <Link to="/stock" className={`flex flex-col items-center ${isActive('/stock')}`}>
+      {/* <Link to="/stock" className={`flex flex-col items-center ${isActive('/stock')}`}>
         <Package size={24} />
         <span className="text-xs mt-1">สต็อก</span>
-      </Link>
+      </Link> */}
 
       {/* 3. หน้าตาราง */}
       <Link to="/table" className={`flex flex-col items-center ${isActive('/table')}`}>

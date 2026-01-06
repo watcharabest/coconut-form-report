@@ -8,7 +8,10 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     // ดึงข้อมูล (Code เดิม)
     try {
-      const transactions = await Transaction.find({}).sort({ 'วันที่': -1 });
+      const transactions = await Transaction.find({})
+      .select('วันที่ ราคาซื้อมะพร้าว ราคาขายมะพร้าว จำนวนขายมะพร้าว')
+      .sort({ 'วันที่': -1 })
+      .lean();
       res.status(200).json(transactions);
     } catch (error) {
       res.status(500).json({ error: "ดึงข้อมูลไม่สำเร็จ" });

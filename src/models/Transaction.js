@@ -8,5 +8,7 @@ const TransactionSchema = new mongoose.Schema({
   'ราคาขายมะพร้าว': { type: Number, required: true },
 });
 
+TransactionSchema.index({ 'วันที่' : -1 });
+
 // ป้องกัน error เวลา compile ซ้ำ
 export default mongoose.models.Transaction || mongoose.model('Transaction', TransactionSchema);
