@@ -3,7 +3,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { Save } from 'lucide-react';
 import Swal from 'sweetalert2'; // ✅ นำเข้า SweetAlert2
-
+import confetti from 'canvas-confetti'; // ✅ นำเข้าพลุกระดาษ
 export default function InputForm() {
   // ตั้งค่าเริ่มต้น (วันที่ = วันนี้)
   const [form, setForm] = useState({
@@ -12,6 +12,7 @@ export default function InputForm() {
     soldQuantity: '',
     sellPrice: 50
   });
+
 
   const [loading, setLoading] = useState(false);
 
@@ -37,14 +38,31 @@ export default function InputForm() {
       // ยิง API
       await axios.post('/api/transactions', payload);
 
-      // ✅ ใช้ SweetAlert2 แทน alert เดิม
+      // 🎉 จุดพลุกระดาษฉลอง!
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#16a34a', '#facc15', '#f97316', '#ffffff'], // สีมะพร้าว/เงิน
+        zIndex: 3000 // ให้พลุอยู่บนสุด (ทับกรอบ SweetAlert2)
+      });
+
+      // ✅ คำนวณกำไรของรายการนี้
+      const profit = (payload['ราคาขายมะพร้าว'] - payload['ราคาซื้อมะพร้าว']) * payload['จำนวนขายมะพร้าว'];
+
+      // ✅ ใช้ SweetAlert2 พร้อมตัวอักษรสวยงาม
       await Swal.fire({
         title: 'บันทึกสำเร็จ!',
-        text: 'ข้อมูลถูกบันทึกเรียบร้อยแล้ว',
-        icon: 'success',
+        html: `
+          <div style="margin-top: 8px;">
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 8px;">วันนี้ขายได้กำไร</p>
+            <p style="font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, #16a34a, #15803d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2;">
+              ฿${profit.toLocaleString()}
+            </p>
+          </div>
+        `,
         confirmButtonText: 'ตกลง',
-        confirmButtonColor: '#16a34a', // สีเขียวเดียวกับปุ่มบันทึก
-        timer: 2000, // ปิดเองอัตโนมัติใน 2 วินาที (ถ้าไม่กด)
+        confirmButtonColor: '#16a34a',
       });
 
       // ล้างค่าฟอร์ม
@@ -57,7 +75,7 @@ export default function InputForm() {
 
     } catch (error) {
       console.error(error);
-      
+
       // ❌ แจ้งเตือน Error ด้วย SweetAlert2
       Swal.fire({
         title: 'เกิดข้อผิดพลาด',
@@ -66,7 +84,7 @@ export default function InputForm() {
         confirmButtonText: 'ลองใหม่',
         confirmButtonColor: '#d33'
       });
-      
+
     } finally {
       setLoading(false);
     }
@@ -79,7 +97,7 @@ export default function InputForm() {
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+
         {/* 1. วันที่ */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">วันที่</label>

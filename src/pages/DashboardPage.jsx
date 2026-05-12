@@ -108,11 +108,13 @@ export default function DashboardPage() {
         return { currentName: current.name, prevName: prev.name, revChange, profitChange, qtyChange };
     }, [monthlyData]);
 
-    // --- วันขายดี/แย่ที่สุด ---
+    // --- วันขายดีที่สุด ---
     const bestWorstDays = useMemo(() => {
-        if (filteredData.length === 0) return null;
+        // กรองข้อมูลตั้งแต่เมษายน 68 (ค.ศ. 2025) เป็นต้นไป
+        const validData = filteredData.filter(item => new Date(item['วันที่']) >= new Date('2025-04-01'));
+        if (validData.length === 0) return null;
         const dailyMap = {};
-        filteredData.forEach(item => {
+        validData.forEach(item => {
             const dateKey = new Date(item['วันที่']).toDateString();
             const dateTH = new Date(item['วันที่']).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
             if (!dailyMap[dateKey]) dailyMap[dateKey] = { dateTH, qty: 0, profit: 0 };
@@ -122,9 +124,14 @@ export default function DashboardPage() {
         });
         const days = Object.values(dailyMap);
         const best = days.reduce((a, b) => a.profit > b.profit ? a : b);
-        const worst = days.reduce((a, b) => a.profit < b.profit ? a : b);
-        return { best, worst };
+        return { best };
     }, [filteredData]);
+
+    // --- เดือนทำสถิติสูงสุด ---
+    const bestMonth = useMemo(() => {
+        if (monthlyData.length === 0) return null;
+        return monthlyData.reduce((a, b) => a.netProfit > b.netProfit ? a : b);
+    }, [monthlyData]);
 
     // --- Profit Margin % รายเดือน ---
     const marginData = useMemo(() => {
@@ -206,9 +213,9 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* --- วันขายดี/แย่ --- */}
-            {bestWorstDays && (
-                <div className="grid grid-cols-2 gap-3">
+            {/* --- Motivation Cards (วันขายดีสุด + เดือนปังสุด) --- */}
+            <div className="grid grid-cols-2 gap-3">
+                {bestWorstDays && (
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
                         <div className="flex items-center gap-1 mb-2">
                             <Trophy size={14} className="text-green-600" />
@@ -217,10 +224,18 @@ export default function DashboardPage() {
                         <p className="text-sm font-bold text-gray-800">{bestWorstDays.best.dateTH}</p>
                         <p className="text-xs text-gray-600">{formatNumber(bestWorstDays.best.qty)} ลูก · กำไร ฿{formatNumber(bestWorstDays.best.profit)}</p>
                     </div>
-                    <div className="bg-gradient-to-br from-red-50 to-orange-50 p-4 rounded-xl border border-red-200">
+                )}
+                {bestMonth && (
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+                        <div className="flex items-center gap-1 mb-2">
+                            <TrendingUp size={14} className="text-purple-600" />
+                            <p className="text-xs font-semibold text-purple-700">เดือนขายดีสุด</p>
+                        </div>
+                        <p className="text-sm font-bold text-gray-800">{bestMonth.name}</p>
+                        <p className="text-xs text-gray-600">{formatNumber(bestMonth.totalQty)} ลูก · กำไร ฿{formatNumber(bestMonth.netProfit)}</p>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* --- กราฟสรุปยอดรายเดือน --- */}
             <div className="bg-white p-4 rounded-xl shadow-md border border-gray-200">
