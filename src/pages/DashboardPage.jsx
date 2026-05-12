@@ -187,7 +187,7 @@ export default function DashboardPage() {
             {/* --- เปรียบเทียบเดือนนี้ vs เดือนก่อน --- */}
             {monthComparison && (
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-sm font-bold text-gray-700 mb-3">📊 เทียบกับเดือนก่อน ({monthComparison.prevName} → {monthComparison.currentName})</h2>
+                    <h2 className="text-sm font-bold text-gray-700 mb-3">เทียบกับเดือนก่อน ({monthComparison.prevName} → {monthComparison.currentName})</h2>
                     <div className="grid grid-cols-3 gap-2">
                         {[
                             { label: 'รายได้', val: monthComparison.revChange },
@@ -218,12 +218,6 @@ export default function DashboardPage() {
                         <p className="text-xs text-gray-600">{formatNumber(bestWorstDays.best.qty)} ลูก · กำไร ฿{formatNumber(bestWorstDays.best.profit)}</p>
                     </div>
                     <div className="bg-gradient-to-br from-red-50 to-orange-50 p-4 rounded-xl border border-red-200">
-                        <div className="flex items-center gap-1 mb-2">
-                            <AlertTriangle size={14} className="text-red-500" />
-                            <p className="text-xs font-semibold text-red-700">วันขายแย่สุด</p>
-                        </div>
-                        <p className="text-sm font-bold text-gray-800">{bestWorstDays.worst.dateTH}</p>
-                        <p className="text-xs text-gray-600">{formatNumber(bestWorstDays.worst.qty)} ลูก · กำไร ฿{formatNumber(bestWorstDays.worst.profit)}</p>
                     </div>
                 </div>
             )}
