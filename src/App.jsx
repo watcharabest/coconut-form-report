@@ -12,7 +12,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-        
+
         {/* ส่วนเนื้อหาที่จะเปลี่ยนไปตาม URL */}
         <Routes>
           <Route path="/" element={<InputForm />} />
@@ -23,7 +23,7 @@ function App() {
 
         {/* เมนู Footer อยู่ตลอดทุกหน้า */}
         <Footer />
-        
+
       </div>
     </BrowserRouter>
   );

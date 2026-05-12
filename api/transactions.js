@@ -6,10 +6,9 @@ export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method === 'GET') {
-    // ดึงข้อมูล (Code เดิม)
+    // ดึงข้อมูล
     try {
       const transactions = await Transaction.find({})
-      .select('วันที่ ราคาซื้อมะพร้าว ราคาขายมะพร้าว จำนวนขายมะพร้าว')
       .sort({ 'วันที่': -1 })
       .lean();
       res.status(200).json(transactions);
@@ -18,15 +17,12 @@ export default async function handler(req, res) {
     }
   } 
   
-  // ✅ เพิ่มส่วนนี้: รับข้อมูลใหม่ (POST)
+  // รับข้อมูลใหม่ (POST)
   else if (req.method === 'POST') {
     try {
-      // รับข้อมูลจากหน้าบ้าน
       const data = req.body;
-      
       console.log(data);
 
-      // สร้างข้อมูลใหม่ลง Database
       const newTransaction = new Transaction(data);
       await newTransaction.save();
 
@@ -36,6 +32,54 @@ export default async function handler(req, res) {
       res.status(500).json({ error: "บันทึกไม่สำเร็จ", details: error.message });
     }
   } 
+  
+  // แก้ไขข้อมูล (PUT)
+  else if (req.method === 'PUT') {
+    try {
+      const { _id, ...updateData } = req.body;
+
+      if (!_id) {
+        return res.status(400).json({ error: "ต้องระบุ _id" });
+      }
+
+      const updated = await Transaction.findByIdAndUpdate(
+        _id,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: "ไม่พบรายการ" });
+      }
+
+      res.status(200).json({ message: "แก้ไขสำเร็จ!", data: updated });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "แก้ไขไม่สำเร็จ", details: error.message });
+    }
+  }
+
+  // ลบข้อมูล (DELETE)
+  else if (req.method === 'DELETE') {
+    try {
+      const { _id } = req.body;
+
+      if (!_id) {
+        return res.status(400).json({ error: "ต้องระบุ _id" });
+      }
+
+      const deleted = await Transaction.findByIdAndDelete(_id);
+
+      if (!deleted) {
+        return res.status(404).json({ error: "ไม่พบรายการ" });
+      }
+
+      res.status(200).json({ message: "ลบสำเร็จ!" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "ลบไม่สำเร็จ", details: error.message });
+    }
+  }
   
   else {
     res.status(405).json({ message: "Method not allowed" });
