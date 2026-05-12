@@ -222,7 +222,8 @@ export default function DashboardPage() {
                             <p className="text-xs font-semibold text-green-700">วันขายดีสุด</p>
                         </div>
                         <p className="text-sm font-bold text-gray-800">{bestWorstDays.best.dateTH}</p>
-                        <p className="text-xs text-gray-600">{formatNumber(bestWorstDays.best.qty)} ลูก · กำไร ฿{formatNumber(bestWorstDays.best.profit)}</p>
+                        <p className="text-xs text-gray-600">{formatNumber(bestWorstDays.best.qty)} ลูก</p>
+                        <p className="text-xs text-gray-600">กำไร ฿{formatNumber(bestWorstDays.best.profit)}</p>
                     </div>
                 )}
                 {bestMonth && (
@@ -232,7 +233,8 @@ export default function DashboardPage() {
                             <p className="text-xs font-semibold text-purple-700">เดือนขายดีสุด</p>
                         </div>
                         <p className="text-sm font-bold text-gray-800">{bestMonth.name}</p>
-                        <p className="text-xs text-gray-600">{formatNumber(bestMonth.totalQty)} ลูก · กำไร ฿{formatNumber(bestMonth.netProfit)}</p>
+                        <p className="text-xs text-gray-600">{formatNumber(bestMonth.totalQty)} ลูก</p>
+                        <p className="text-xs text-gray-600">กำไร ฿{formatNumber(bestMonth.netProfit)}</p>
                     </div>
                 )}
             </div>
@@ -280,7 +282,7 @@ export default function DashboardPage() {
                                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} unit="฿" />
                                 <Tooltip />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                                <Bar yAxisId="left" dataKey="margin" name="Margin %" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={20}>
+                                <Bar yAxisId="left" dataKey="margin" name="Margin %" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={8}>
                                     <LabelList dataKey="margin" position="top" fontSize={9} fill="#8b5cf6" formatter={(v) => `${v}%`} />
                                 </Bar>
                                 <Line yAxisId="right" type="monotone" dataKey="avgProfitPerUnit" name="กำไร/ลูก (฿)" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
