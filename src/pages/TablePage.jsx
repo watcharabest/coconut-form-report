@@ -269,7 +269,7 @@ export default function TablePage() {
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-[fadeInUp_0.25s_ease-out]" onClick={(e) => e.stopPropagation()}>
                         {/* Header */}
                         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-green-50 to-emerald-50">
-                            <h2 className="text-lg font-bold text-gray-800">{editMode ? '✏️ แก้ไขรายการ' : '📋 รายละเอียด'}</h2>
+                            <h2 className="text-lg font-bold text-gray-800">{editMode ? 'แก้ไขรายการ' : 'รายละเอียด'}</h2>
                             <button onClick={closeModal} className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"><X size={20} className="text-gray-500" /></button>
                         </div>
 
