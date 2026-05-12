@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "bun run --env-file=.env.local dev-server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
