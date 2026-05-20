@@ -1,6 +1,7 @@
 // src/lib/db.js
 import mongoose from 'mongoose';
 
+// eslint-disable-next-line no-undef
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
@@ -13,9 +14,11 @@ if (!MONGODB_URI) {
  * Global variable to cache the connection.
  * Prevents multiple connections in Serverless environment.
  */
+// eslint-disable-next-line no-undef
 let cached = global.mongoose;
 
 if (!cached) {
+  // eslint-disable-next-line no-undef
   cached = global.mongoose = { conn: null, promise: null };
 }
 
