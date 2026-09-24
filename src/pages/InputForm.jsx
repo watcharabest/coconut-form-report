@@ -1,9 +1,10 @@
 // src/pages/InputForm.jsx
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Save, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { Save, Sparkles, Target, TrendingUp, CheckCircle2, Award } from 'lucide-react';
 import Swal from 'sweetalert2';
 import confetti from 'canvas-confetti';
+import { calculateMonthlyTiers } from '../lib/milestoneAnalytics';
 
 export default function InputForm() {
   // ตั้งค่าเริ่มต้น (วันที่ = วันนี้)
@@ -15,6 +16,28 @@ export default function InputForm() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+
+  const fetchTransactions = async () => {
+    try {
+      const res = await axios.get('/api/transactions');
+      setTransactions(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+
+  const tierData = useMemo(() => {
+    return calculateMonthlyTiers(transactions, currentYear, currentMonth);
+  }, [transactions, currentYear, currentMonth]);
 
   // ฟังก์ชันเปลี่ยนค่าในฟอร์ม
   const handleChange = (e) => {
@@ -72,6 +95,11 @@ export default function InputForm() {
       const profit = (payload['ราคาขายมะพร้าว'] - payload['ราคาซื้อมะพร้าว']) * payload['จำนวนขายมะพร้าว'];
       const qty = payload['จำนวนขายมะพร้าว'];
 
+      // ตรวจสอบว่ารายการนี้ช่วยปลดล็อกระดับขั้นใหม่หรือไม่
+      const priorQty = tierData.currentQty;
+      const newTotalQty = priorQty + qty;
+      const unlockedTier = tierData.tiers.find(t => priorQty < t.target && newTotalQty >= t.target);
+
       // แจ้งเตือนความสำเร็จด้วย SweetAlert2
       await Swal.fire({
         title: 'บันทึกสำเร็จ',
@@ -83,10 +111,10 @@ export default function InputForm() {
             </p>
             <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; text-align: left;">
               <p style="color: #166534; font-size: 13px; font-weight: 600; margin: 0 0 4px 0;">
-                ความก้าวหน้าสู่เป้าหมาย
+                ${unlockedTier ? `พิชิต${unlockedTier.label} สำเร็จเรียบร้อย` : 'ความก้าวหน้าสู่เป้าหมาย'}
               </p>
               <p style="color: #374151; font-size: 12px; margin: 0;">
-                สะสมผลผลิตเพิ่ม +${qty.toLocaleString('th-TH')} ลูก เข้าสู่เป้าหมายประจำเดือนเรียบร้อย
+                สะสมผลผลิตเพิ่ม +${qty.toLocaleString('th-TH')} ลูก (ยอดรวมเดือนนี้: ${newTotalQty.toLocaleString('th-TH')} ลูก)
               </p>
             </div>
           </div>
@@ -103,10 +131,13 @@ export default function InputForm() {
         sellPrice: 50
       });
 
+      // รีเฟรชข้อมูลเพื่ออัปเดตสถิติ Tiers ทันที
+      fetchTransactions();
+
     } catch (error) {
       console.error(error);
 
-      // ❌ แจ้งเตือน Error ด้วย SweetAlert2
+      // แจ้งเตือน Error ด้วย SweetAlert2
       Swal.fire({
         title: 'เกิดข้อผิดพลาด',
         text: error.message || 'บันทึกข้อมูลไม่สำเร็จ',
@@ -122,9 +153,63 @@ export default function InputForm() {
 
   return (
     <div className="p-6 pb-24 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold text-gray-700 mb-6 text-center">
+      <h1 className="text-2xl font-bold text-gray-700 mb-4 text-center">
         บันทึกรายการใหม่
       </h1>
+
+      {/* การ์ดสรุปเป้าหมาย 3 ระดับของเดือนนี้ */}
+      <div className="mb-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
+        <div className="flex items-center justify-between text-xs mb-2">
+          <span className="flex items-center gap-1.5 font-bold text-gray-800">
+            <Target size={14} className="text-emerald-600" />
+            เป้าหมาย{tierData.periodLabel}
+          </span>
+          <span className="text-[11px] text-gray-500 font-medium">
+            สะสมแล้ว: <strong className="text-emerald-700 font-bold">{tierData.currentQty.toLocaleString('th-TH')}</strong> ลูก
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5">
+          {tierData.tiers.map((t) => {
+            const isCurrentActive = tierData.activeTier.id === t.id && !tierData.allCompleted;
+            return (
+              <div
+                key={t.id}
+                className={`p-2 rounded-lg border text-center transition-all ${
+                  t.achieved
+                    ? 'bg-emerald-100/60 border-emerald-300 text-emerald-900'
+                    : isCurrentActive
+                    ? 'bg-white border-teal-500 ring-1 ring-teal-200 shadow-2xs'
+                    : 'bg-white/50 border-gray-200 text-gray-400'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1 text-[10px] font-bold">
+                  {t.achieved ? (
+                    <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <span className={`w-1.5 h-1.5 rounded-full ${isCurrentActive ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'}`} />
+                  )}
+                  <span className={t.achieved ? 'text-emerald-800' : isCurrentActive ? 'text-teal-700' : 'text-gray-500'}>
+                    {t.label}
+                  </span>
+                </div>
+                <p className={`text-[11px] font-extrabold mt-0.5 ${t.achieved ? 'text-emerald-700' : isCurrentActive ? 'text-gray-800' : 'text-gray-500'}`}>
+                  {t.target.toLocaleString('th-TH')} ลูก
+                </p>
+                <span className={`inline-block text-[8px] px-1 py-0.5 rounded font-medium mt-0.5 ${
+                  t.achieved
+                    ? 'bg-emerald-200/60 text-emerald-800'
+                    : isCurrentActive
+                    ? 'bg-teal-100 text-teal-800'
+                    : 'bg-gray-100 text-gray-400'
+                }`}>
+                  {t.achieved ? 'สำเร็จแล้ว' : isCurrentActive ? 'กำลังมุ่งสู่' : 'ถัดไป'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -204,9 +289,15 @@ export default function InputForm() {
               {cheerMessage}
             </p>
 
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2 pt-2 border-t border-emerald-100/70">
+            <div className="flex items-center gap-1.5 text-xs text-gray-600 mt-2 pt-2 border-t border-emerald-100/70">
               <Target size={13} className="text-emerald-600 shrink-0" />
-              <span>เพิ่มยอดสะสมสู่เป้าหมายประจำเดือน +{qtyNum.toLocaleString('th-TH')} ลูก</span>
+              <span>
+                {tierData.allCompleted ? (
+                  <>เพิ่มยอดทะลุเป้าโบนัส +{qtyNum.toLocaleString('th-TH')} ลูก (รวมเป็น {(tierData.currentQty + qtyNum).toLocaleString('th-TH')} ลูก)</>
+                ) : (
+                  <>เพิ่มยอดสู่{tierData.activeTier.label} +{qtyNum.toLocaleString('th-TH')} ลูก (สะสมรวม {(tierData.currentQty + qtyNum).toLocaleString('th-TH')} / {tierData.activeTier.target.toLocaleString('th-TH')} ลูก)</>
+                )}
+              </span>
             </div>
           </div>
         )}

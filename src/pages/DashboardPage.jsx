@@ -5,6 +5,7 @@ import {
     LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, LabelList
 } from 'recharts';
 import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter, Trophy, AlertTriangle, Sparkles, Target, CheckCircle2, Award } from 'lucide-react';
+import { calculateMonthlyTiers } from '../lib/milestoneAnalytics';
 
 export default function DashboardPage() {
     const [data, setData] = useState([]);
@@ -101,34 +102,28 @@ export default function DashboardPage() {
         return { totalRevenue, totalProfit, totalQty, avgProfitPerUnit, marginPct };
     }, [filteredData]);
 
-    // --- สรุปภาพรวมเชิงบวก & หมุดหมายความสำเร็จ ---
+    // --- คำนวณ 3 ระดับเป้าหมายเชิงสถิติ (Data-Driven 3-Tiers) ---
+    const tierData = useMemo(() => {
+        return calculateMonthlyTiers(data, selectedYear, selectedMonth);
+    }, [data, selectedYear, selectedMonth]);
+
+    // --- สรุปภาพรวมเชิงบวก & ไฮไลต์ผลงาน ---
     const positiveInsight = useMemo(() => {
         const { totalQty, totalProfit, marginPct, avgProfitPerUnit } = summary;
-
-        // ระบุรอบเป้าหมาย (สปรินต์ประจำเดือน หรือเป้าหมายประจำปี)
-        const currentMonthObj = selectedMonth !== 'All'
-            ? thaiMonths.find(m => m.id === parseInt(selectedMonth))
-            : null;
-        const targetPeriodLabel = currentMonthObj
-            ? `ประจำเดือน${currentMonthObj.name}`
-            : (selectedYear !== 'All' ? `ประจำปี ${parseInt(selectedYear) + 543}` : 'ภาพรวม');
+        const { periodLabel } = tierData;
 
         if (totalQty === 0) {
             return {
                 title: 'พร้อมเริ่มต้นบันทึกผลประกอบการ',
-                subtitle: `เริ่มต้นบันทึกรายการขาย${targetPeriodLabel} เพื่อติดตามการเติบโตของธุรกิจ`,
+                subtitle: `เริ่มต้นบันทึกรายการขาย${periodLabel} เพื่อติดตามการเติบโตของธุรกิจ`,
                 badges: [],
-                targetPeriodLabel,
-                nextTarget: selectedMonth !== 'All' ? 500 : 2000,
-                progress: 0,
-                remaining: selectedMonth !== 'All' ? 500 : 2000,
                 totalQty: 0,
             };
         }
 
         // ข้อความไฮไลต์เชิงบวกตามผลงานที่โดดเด่น
         let title = 'การดำเนินงานมีความก้าวหน้าที่มั่นคง';
-        let subtitle = `ยอดขายและผลประกอบการ${targetPeriodLabel} ขับเคลื่อนธุรกิจไปข้างหน้าอย่างต่อเนื่อง`;
+        let subtitle = `ยอดขายและผลประกอบการ${periodLabel} ขับเคลื่อนธุรกิจไปข้างหน้าอย่างต่อเนื่อง`;
 
         if (marginPct >= 35) {
             title = 'ประสิทธิภาพการบริหารต้นทุนยอดเยี่ยม';
@@ -156,28 +151,13 @@ export default function DashboardPage() {
             badges.push({ id: 'unitProfit', label: 'มูลค่าต่อหน่วยสูง', desc: `฿${avgProfitPerUnit.toFixed(1)}/ลูก` });
         }
 
-        // บันไดเป้าหมายระยะสั้น (Short-term Sprint Steps)
-        const sprintSteps = selectedMonth !== 'All'
-            ? [300, 500, 800, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000]
-            : [1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000];
-
-        const nextTarget = sprintSteps.find(step => step > totalQty)
-            || (Math.ceil(totalQty / (selectedMonth !== 'All' ? 1000 : 5000)) + 1) * (selectedMonth !== 'All' ? 1000 : 5000);
-        const prevTarget = sprintSteps.filter(step => step <= totalQty).pop() || 0;
-        const progress = Math.min(100, Math.max(5, Math.round(((totalQty - prevTarget) / (nextTarget - prevTarget)) * 100)));
-        const remaining = Math.max(0, nextTarget - totalQty);
-
         return {
             title,
             subtitle,
             badges,
-            targetPeriodLabel,
-            nextTarget,
-            progress,
-            remaining,
             totalQty,
         };
-    }, [summary, selectedMonth, selectedYear]);
+    }, [summary, tierData, selectedMonth]);
 
     // --- วันขายดีที่สุด ---
     const bestWorstDays = useMemo(() => {
@@ -300,27 +280,94 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* แถบวัดความก้าวหน้าสู่เป้าหมายระยะสั้น */}
-                    <div className="bg-white/90 backdrop-blur-xs p-3 rounded-lg border border-emerald-100 shadow-2xs">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                            <span className="flex items-center gap-1.5 font-semibold text-gray-700">
-                                <Target size={14} className="text-emerald-600" />
-                                เป้าหมาย{positiveInsight.targetPeriodLabel} {formatNumber(positiveInsight.nextTarget)} ลูก
+                    {/* บล็อก 3 ลำดับขั้นสถิติ (3-Tier Milestones) */}
+                    <div className="bg-white/90 backdrop-blur-xs p-3.5 rounded-lg border border-emerald-100 shadow-2xs space-y-3">
+                        {/* ส่วนหัวของหมุดหมาย */}
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 font-bold text-gray-800">
+                                <Target size={15} className="text-emerald-600" />
+                                หมุดหมาย 3 ระดับ{tierData.periodLabel}
                             </span>
-                            <span className="text-xs font-semibold text-emerald-700">
-                                ขาดอีก {formatNumber(positiveInsight.remaining)} ลูก
+                            <span className="text-[11px] text-gray-500 font-medium">
+                                สะสมรอบนี้: <strong className="text-emerald-700 font-bold">{formatNumber(tierData.currentQty)}</strong> ลูก
                             </span>
                         </div>
-                        <div className="w-full bg-emerald-100/70 rounded-full h-2 overflow-hidden">
-                            <div
-                                className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${positiveInsight.progress}%` }}
-                            />
+
+                        {/* กล่องแสดงผล 3 Tiers */}
+                        <div className="grid grid-cols-3 gap-2">
+                            {tierData.tiers.map((t) => {
+                                const isCurrentActive = tierData.activeTier.id === t.id && !tierData.allCompleted;
+                                return (
+                                    <div
+                                        key={t.id}
+                                        className={`p-2.5 rounded-lg border text-center transition-all ${
+                                            t.achieved
+                                                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 shadow-2xs'
+                                                : isCurrentActive
+                                                ? 'bg-white border-teal-500 ring-2 ring-teal-100 shadow-xs'
+                                                : 'bg-gray-50/60 border-gray-200 text-gray-400'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-center gap-1 mb-1">
+                                            {t.achieved ? (
+                                                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                                            ) : (
+                                                <span className={`w-1.5 h-1.5 rounded-full ${isCurrentActive ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'}`} />
+                                            )}
+                                            <span className={`text-[11px] font-bold ${t.achieved ? 'text-emerald-800' : isCurrentActive ? 'text-teal-700' : 'text-gray-500'}`}>
+                                                {t.label}
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs font-extrabold ${t.achieved ? 'text-emerald-700' : isCurrentActive ? 'text-gray-800' : 'text-gray-500'}`}>
+                                            {formatNumber(t.target)} ลูก
+                                        </p>
+                                        <span className={`inline-block text-[9px] mt-1 px-1.5 py-0.5 rounded-sm font-medium ${
+                                            t.achieved
+                                                ? 'bg-emerald-200/70 text-emerald-800'
+                                                : isCurrentActive
+                                                ? 'bg-teal-100 text-teal-800'
+                                                : 'bg-gray-100 text-gray-400'
+                                        }`}>
+                                            {t.achieved ? 'สำเร็จแล้ว' : isCurrentActive ? 'กำลังมุ่งสู่' : 'ขั้นถัดไป'}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1.5">
-                            <span>ยอดในรอบนี้: {formatNumber(positiveInsight.totalQty)} ลูก</span>
-                            <span>{positiveInsight.progress}% สู่หมุดหมายถัดไป</span>
-                        </div>
+
+                        {/* แถบความก้าวหน้าสู่ขั้นถัดไป หรือฉลองครบ 3 ขั้น */}
+                        {tierData.allCompleted ? (
+                            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-2.5 rounded-lg text-white text-center shadow-xs">
+                                <p className="text-xs font-bold flex items-center justify-center gap-1.5">
+                                    <Award size={15} />
+                                    พิชิตครบทั้ง 3 ขั้นสำเร็จเรียบร้อย ยอดเยี่ยมมาก
+                                </p>
+                                <p className="text-[11px] text-emerald-100 mt-0.5">
+                                    ยอดสะสมรวม {formatNumber(tierData.currentQty)} ลูก (ยอดทะลุเป้าโบนัส +{formatNumber(tierData.bonusQty)} ลูก)
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center justify-between text-[11px] mb-1">
+                                    <span className="font-semibold text-gray-700">
+                                        ก้าวสู่{tierData.activeTier.label} ({formatNumber(tierData.activeTier.target)} ลูก)
+                                    </span>
+                                    <span className="font-semibold text-teal-700">
+                                        ขาดอีก {formatNumber(tierData.remaining)} ลูก
+                                    </span>
+                                </div>
+                                <div className="w-full bg-emerald-100/70 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                                        style={{ width: `${tierData.progress}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+                                    <span>ฐานขั้นก่อนหน้า: {formatNumber(tierData.prevTarget)} ลูก</span>
+                                    <span>ความก้าวหน้า {tierData.progress}% สู่ขั้นนี้</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
