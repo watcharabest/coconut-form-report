@@ -1,7 +1,7 @@
 // src/pages/InputForm.jsx
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Save, Sparkles, Target, TrendingUp, CheckCircle2, Award } from 'lucide-react';
+import { Save, Sparkles, Target, TrendingUp, CheckCircle2, Award, ShieldCheck, Lock } from 'lucide-react';
 import Swal from 'sweetalert2';
 import confetti from 'canvas-confetti';
 import { calculateMonthlyTiers } from '../lib/milestoneAnalytics';
@@ -158,53 +158,102 @@ export default function InputForm() {
       </h1>
 
       {/* การ์ดสรุปเป้าหมาย 3 ระดับของเดือนนี้ */}
-      <div className="mb-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
-        <div className="flex items-center justify-between text-xs mb-2">
+      <div className="mb-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-2.5">
+        <div className="flex items-center justify-between text-xs">
           <span className="flex items-center gap-1.5 font-bold text-gray-800">
             <Target size={14} className="text-emerald-600" />
             เป้าหมาย{tierData.periodLabel}
           </span>
-          <span className="text-[11px] text-gray-500 font-medium">
-            สะสมแล้ว: <strong className="text-emerald-700 font-bold">{tierData.currentQty.toLocaleString('th-TH')}</strong> ลูก
+          <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${tierData.difficultyInfo.badgeClass}`}>
+            <Lock size={10} className="shrink-0" />
+            <span>{tierData.difficultyInfo.shortLabel}</span>
+          </div>
+        </div>
+
+        {/* แถบยศที่ได้รับ */}
+        <div className="flex items-center justify-between p-2 bg-white/90 rounded-lg border border-emerald-100 shadow-2xs text-xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <ShieldCheck size={14} className={tierData.completedCount > 0 ? 'text-emerald-600 shrink-0' : 'text-gray-400 shrink-0'} />
+            <span className="text-[11px] font-bold text-gray-800 truncate">{tierData.rankTitle}</span>
+          </div>
+          <span className="text-[10px] text-gray-500 font-medium shrink-0 ml-1">
+            สะสม <strong className="text-emerald-700 font-bold">{tierData.currentQty.toLocaleString('th-TH')}</strong> ลูก
           </span>
         </div>
 
+        {/* กล่อง 3 Tiers พร้อมตราประทับเกียรติยศ */}
         <div className="grid grid-cols-3 gap-1.5">
           {tierData.tiers.map((t) => {
             const isCurrentActive = tierData.activeTier.id === t.id && !tierData.allCompleted;
+            const isTier1 = t.id === 'tier1';
+            const isTier2 = t.id === 'tier2';
+
             return (
               <div
                 key={t.id}
-                className={`p-2 rounded-lg border text-center transition-all ${
+                className={`p-2 rounded-lg border text-center transition-all flex flex-col justify-between ${
                   t.achieved
-                    ? 'bg-emerald-100/60 border-emerald-300 text-emerald-900'
+                    ? 'bg-gradient-to-b from-emerald-50 to-teal-50/80 border-2 border-emerald-500 text-emerald-950 shadow-2xs'
                     : isCurrentActive
-                    ? 'bg-white border-teal-500 ring-1 ring-teal-200 shadow-2xs'
-                    : 'bg-white/50 border-gray-200 text-gray-400'
+                    ? isTier1
+                      ? 'bg-white border-2 border-amber-500 ring-1 ring-amber-200 shadow-2xs'
+                      : isTier2
+                      ? 'bg-white border-2 border-blue-500 ring-1 ring-blue-200 shadow-2xs'
+                      : 'bg-white border-2 border-yellow-500 ring-1 ring-yellow-200 shadow-2xs'
+                    : 'bg-white/60 border-gray-200 text-gray-400'
                 }`}
               >
-                <div className="flex items-center justify-center gap-1 text-[10px] font-bold">
+                <div>
                   {t.achieved ? (
-                    <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
+                    <div className="flex items-center justify-center gap-0.5 bg-emerald-600 text-white font-extrabold text-[9px] py-0.5 px-1 rounded mb-1 shadow-2xs">
+                      <ShieldCheck size={10} className="shrink-0" />
+                      <span>สำเร็จ 100%</span>
+                    </div>
+                  ) : isCurrentActive ? (
+                    <div className={`flex items-center justify-center gap-0.5 font-bold text-[9px] py-0.5 px-1 rounded mb-1 ${
+                      isTier1 ? 'bg-amber-600 text-white' : isTier2 ? 'bg-blue-600 text-white' : 'bg-yellow-600 text-white'
+                    }`}>
+                      <Target size={10} className="shrink-0 animate-pulse" />
+                      <span>กำลังพิชิต</span>
+                    </div>
                   ) : (
-                    <span className={`w-1.5 h-1.5 rounded-full ${isCurrentActive ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'}`} />
+                    <div className="flex items-center justify-center gap-0.5 bg-gray-100 text-gray-400 font-medium text-[8px] py-0.5 px-1 rounded mb-1">
+                      <Award size={9} className="shrink-0" />
+                      <span>ถัดไป</span>
+                    </div>
                   )}
-                  <span className={t.achieved ? 'text-emerald-800' : isCurrentActive ? 'text-teal-700' : 'text-gray-500'}>
+
+                  <span className={`text-[10px] font-bold block ${
+                    t.achieved
+                      ? 'text-emerald-900'
+                      : isCurrentActive
+                      ? isTier1 ? 'text-amber-900' : isTier2 ? 'text-blue-900' : 'text-yellow-900'
+                      : 'text-gray-400'
+                  }`}>
                     {t.label}
                   </span>
+                  <p className={`text-[11px] font-black mt-0.5 ${
+                    t.achieved
+                      ? 'text-emerald-700'
+                      : isCurrentActive
+                      ? 'text-gray-800'
+                      : 'text-gray-400'
+                  }`}>
+                    {t.target.toLocaleString('th-TH')} ลูก
+                  </p>
                 </div>
-                <p className={`text-[11px] font-extrabold mt-0.5 ${t.achieved ? 'text-emerald-700' : isCurrentActive ? 'text-gray-800' : 'text-gray-500'}`}>
-                  {t.target.toLocaleString('th-TH')} ลูก
+
+                <p className="text-[8px] mt-1 font-semibold">
+                  {t.achieved ? (
+                    <span className="text-emerald-700 font-bold">ผ่านเกณฑ์</span>
+                  ) : isCurrentActive ? (
+                    <span className={isTier1 ? 'text-amber-700' : isTier2 ? 'text-blue-700' : 'text-yellow-700'}>
+                      ขาดอีก {(t.target - tierData.currentQty).toLocaleString('th-TH')}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">รอดำเนินการ</span>
+                  )}
                 </p>
-                <span className={`inline-block text-[8px] px-1 py-0.5 rounded font-medium mt-0.5 ${
-                  t.achieved
-                    ? 'bg-emerald-200/60 text-emerald-800'
-                    : isCurrentActive
-                    ? 'bg-teal-100 text-teal-800'
-                    : 'bg-gray-100 text-gray-400'
-                }`}>
-                  {t.achieved ? 'สำเร็จแล้ว' : isCurrentActive ? 'กำลังมุ่งสู่' : 'ถัดไป'}
-                </span>
               </div>
             );
           })}

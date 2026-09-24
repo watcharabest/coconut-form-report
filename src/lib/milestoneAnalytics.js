@@ -1,13 +1,49 @@
 // src/lib/milestoneAnalytics.js
 
 /**
+ * อ่านระดับความยากประจำเดือน
+ */
+export function getMonthlyDifficulty(year, month) {
+  if (typeof window === 'undefined') return 'standard';
+  const key = `coconut_difficulty_${year}_${month}`;
+  return localStorage.getItem(key) || 'standard';
+}
+
+/**
+ * บันทึกระดับความยากประจำเดือน
+ */
+export function setMonthlyDifficulty(year, month, difficulty) {
+  if (typeof window === 'undefined') return;
+  const key = `coconut_difficulty_${year}_${month}`;
+  localStorage.setItem(key, difficulty);
+  localStorage.setItem(`${key}_locked`, 'true');
+  window.dispatchEvent(new Event('coconut_difficulty_changed'));
+}
+
+/**
+ * ตรวจสอบว่าสามารถเปลี่ยนระดับความยากของเดือนนี้ได้หรือไม่
+ * เงื่อนไข: เป็นวันที่ 1 ของเดือน หรือยังไม่เคยตั้งค่ามาก่อนในเดือนนี้
+ */
+export function checkDifficultyChangeable(year, month) {
+  if (typeof window === 'undefined') return false;
+  const now = new Date();
+  const yearNum = parseInt(year);
+  const monthNum = parseInt(month);
+
+  const isCurrentMonth = now.getFullYear() === yearNum && (now.getMonth() + 1) === monthNum;
+  if (!isCurrentMonth) return false;
+
+  const key = `coconut_difficulty_${year}_${month}`;
+  const isLocked = localStorage.getItem(`${key}_locked`) === 'true';
+
+  // อนุญาตให้เลือกได้ในวันที่ 1 ของเดือน หรือยังไม่เคยบันทึกตั้งค่าเลย
+  const isDay1 = now.getDate() === 1;
+  return isDay1 || !isLocked;
+}
+
+/**
  * คำนวณ 3 ระดับเป้าหมายเชิงสถิติ (3-Tier Statistical Milestones)
- * รองรับทั้งประวัติยอดขายจริงและการปรับตัวตามขนาดของสวน
- *
- * @param {Array} transactions - รายการธุรกรรมทั้งหมด
- * @param {number|string} targetYear - ปีที่ต้องการประเมิน (เช่น 2026 หรือ 'All')
- * @param {number|string} targetMonth - เดือนที่ต้องการประเมิน (1-12 หรือ 'All')
- * @returns {Object} ข้อมูล 3 Tiers และความก้าวหน้า
+ * พร้อมระบบความยากเฉพาะเดือนและชุดสีจำแนกขั้นชัดเจน
  */
 export function calculateMonthlyTiers(transactions = [], targetYear = 'All', targetMonth = 'All') {
   const thaiMonths = [
@@ -61,16 +97,14 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
     currentQty = allMonthlyValues.reduce((acc, cur) => acc + cur, 0);
   }
 
-  // 2. คำนวณฐานสถิติ (Baseline) จากเดือนก่อนหน้า (ไม่รวมเดือนปัจจุบันที่กำลังดำเนินอยู่)
+  // 2. คำนวณฐานสถิติ (Baseline) จากเดือนก่อนหน้า
   const pastMonths = sortedMonthKeys
     .filter(k => k < currentPeriodKey)
     .map(k => monthlyTotals[k].totalQty)
     .filter(q => q > 0);
 
-  let baseline = 1000; // ค่าเริ่มต้นมาตรฐาน
-
+  let baseline = 1000;
   if (pastMonths.length >= 3) {
-    // ให้น้ำหนัก 3 เดือนล่าสุด (Weighted Moving Average: 50%, 30%, 20%)
     const m1 = pastMonths[pastMonths.length - 1];
     const m2 = pastMonths[pastMonths.length - 2];
     const m3 = pastMonths[pastMonths.length - 3];
@@ -81,19 +115,55 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
     baseline = allMonthlyValues.reduce((acc, cur) => acc + cur, 0) / allMonthlyValues.length;
   }
 
-  // ปรับสเกลหากดูภาพรวมทั้งปี
   if (!isMonthSpecific && targetYear !== 'All') {
     baseline = baseline * 12;
   }
 
-  // 3. ปัดเศษฐานสถิติให้เป็นเลขกลมสวยงาม
-  const roundUnit = baseline >= 5000 ? 500 : (baseline >= 1000 ? 100 : 50);
-  const standardTarget = Math.max(isMonthSpecific ? 300 : 2000, Math.round(baseline / roundUnit) * roundUnit);
+  // 3. จัดการระดับความยากประจำเดือน
+  const difficulty = isMonthSpecific ? getMonthlyDifficulty(yearNum, monthNum) : 'standard';
+  const canChangeDifficulty = isMonthSpecific ? checkDifficultyChangeable(yearNum, monthNum) : false;
 
-  // 4. แตกออกเป็น 3 ลำดับขั้น (3 Tiers)
-  // Tier 1: พื้นฐาน (~65%)
-  // Tier 2: มาตรฐาน (100% - จุดพิชิตเป้าหมายประจำเดือน)
-  // Tier 3: ยอดเยี่ยม (~135% - โบนัสสำหรับช่วงผลผลิตดก)
+  let difficultyMultiplier = 1.0;
+  let difficultyInfo = {
+    key: 'standard',
+    label: 'โหมดมาตรฐาน (สมดุล)',
+    shortLabel: 'มาตรฐาน',
+    desc: 'เป้าหมายสอดคล้องตามศักยภาพและสถิติทั่วไปของสวน',
+    badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    headerGradient: 'from-emerald-50 via-teal-50 to-white',
+    headerBorder: 'border-emerald-200'
+  };
+
+  if (difficulty === 'easy') {
+    difficultyMultiplier = 0.8;
+    difficultyInfo = {
+      key: 'easy',
+      label: 'โหมดผ่อนคลาย (ผลผลิตน้อย)',
+      shortLabel: 'ผ่อนคลาย',
+      desc: 'ปรับเป้าหมายลดลง 20% เหมาะสำหรับช่วงมะพร้าวขาดคอหรือหน้ามรสุม',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+      headerGradient: 'from-amber-50 via-orange-50 to-white',
+      headerBorder: 'border-amber-200'
+    };
+  } else if (difficulty === 'hard') {
+    difficultyMultiplier = 1.25;
+    difficultyInfo = {
+      key: 'hard',
+      label: 'โหมดท้าทาย (ผลผลิตดก)',
+      shortLabel: 'ท้าทาย',
+      desc: 'ปรับเป้าหมายเพิ่มขึ้น 25% สำหรับช่วงผลผลิตดกหรือตลาดต้องการสูง',
+      badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+      headerGradient: 'from-indigo-50 via-blue-50 to-white',
+      headerBorder: 'border-indigo-200'
+    };
+  }
+
+  // 4. คำนวณเป้าหมายมาตรฐานและปรับด้วยความยาก
+  const roundUnit = baseline >= 5000 ? 500 : (baseline >= 1000 ? 100 : 50);
+  const adjustedBase = baseline * difficultyMultiplier;
+  const standardTarget = Math.max(isMonthSpecific ? 300 : 2000, Math.round(adjustedBase / roundUnit) * roundUnit);
+
+  // 5. แตกเป็น 3 Tiers พร้อมชุดสีเฉพาะตัว
   const tier1Target = Math.max(isMonthSpecific ? 150 : 1000, Math.round((standardTarget * 0.65) / roundUnit) * roundUnit);
   const tier2Target = standardTarget;
   const tier3Target = Math.round((standardTarget * 1.35) / roundUnit) * roundUnit;
@@ -107,9 +177,12 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
       id: 'tier1',
       step: 1,
       label: 'ขั้นพื้นฐาน',
-      sublabel: 'สถิติฐานผลผลิต',
+      sublabel: 'ฐานรากความมั่นคง',
       target: tier1Target,
       achieved: tier1Achieved,
+      color: 'amber',
+      tagColor: 'bg-amber-100 text-amber-800 border-amber-200',
+      activeRing: 'border-amber-500 ring-2 ring-amber-100'
     },
     {
       id: 'tier2',
@@ -118,6 +191,9 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
       sublabel: 'เป้าหมายหลักประจำงวด',
       target: tier2Target,
       achieved: tier2Achieved,
+      color: 'blue',
+      tagColor: 'bg-blue-100 text-blue-800 border-blue-200',
+      activeRing: 'border-blue-500 ring-2 ring-blue-100'
     },
     {
       id: 'tier3',
@@ -126,30 +202,42 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
       sublabel: 'ระดับยอดผลผลิตดก',
       target: tier3Target,
       achieved: tier3Achieved,
+      color: 'yellow',
+      tagColor: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      activeRing: 'border-yellow-500 ring-2 ring-yellow-100'
     }
   ];
 
-  // 5. ประเมินขั้นที่กำลังมุ่งหน้าสู่ (Active Tier)
+  // 6. ประเมินขั้นที่กำลังมุ่งหน้าสู่ และระดับยศสูงสุดที่ได้รับ
   let activeTier = tiers[0];
   let prevTarget = 0;
   let allCompleted = false;
   let bonusQty = 0;
+  let completedCount = 0;
+  let rankTitle = 'กำลังมุ่งหน้าสู่การรับรอง [ขั้นพื้นฐาน]';
 
-  if (!tier1Achieved) {
-    activeTier = tiers[0];
-    prevTarget = 0;
-  } else if (!tier2Achieved) {
-    activeTier = tiers[1];
-    prevTarget = tier1Target;
-  } else if (!tier3Achieved) {
-    activeTier = tiers[2];
-    prevTarget = tier2Target;
-  } else {
-    // พิชิตครบทั้ง 3 Tiers
+  if (tier3Achieved) {
     allCompleted = true;
     activeTier = tiers[2];
     prevTarget = tier2Target;
     bonusQty = currentQty - tier3Target;
+    completedCount = 3;
+    rankTitle = 'พิชิตระดับสูงสุด [ขั้นยอดเยี่ยม] ครบสมบูรณ์ 3 จาก 3 ขั้น';
+  } else if (tier2Achieved) {
+    activeTier = tiers[2];
+    prevTarget = tier2Target;
+    completedCount = 2;
+    rankTitle = 'ได้รับการรับรอง [ขั้นมาตรฐาน] (ผ่านแล้ว 2 จาก 3 ขั้น)';
+  } else if (tier1Achieved) {
+    activeTier = tiers[1];
+    prevTarget = tier1Target;
+    completedCount = 1;
+    rankTitle = 'ได้รับการรับรอง [ขั้นพื้นฐาน] (ผ่านแล้ว 1 จาก 3 ขั้น)';
+  } else {
+    activeTier = tiers[0];
+    prevTarget = 0;
+    completedCount = 0;
+    rankTitle = 'กำลังมุ่งหน้าสู่การรับรอง [ขั้นพื้นฐาน]';
   }
 
   // คำนวณความก้าวหน้าสู่ขั้นปัจจุบัน (%)
@@ -170,12 +258,19 @@ export function calculateMonthlyTiers(transactions = [], targetYear = 'All', tar
     periodLabel,
     currentQty,
     baseline: standardTarget,
+    yearNum,
+    monthNum,
+    difficulty,
+    difficultyInfo,
+    canChangeDifficulty,
     tiers,
     activeTier,
     prevTarget,
     progress,
     remaining,
     allCompleted,
-    bonusQty
+    bonusQty,
+    completedCount,
+    rankTitle
   };
 }

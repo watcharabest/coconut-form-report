@@ -4,14 +4,21 @@ import axios from 'axios';
 import {
     LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, LabelList
 } from 'recharts';
-import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter, Trophy, AlertTriangle, Sparkles, Target, CheckCircle2, Award } from 'lucide-react';
-import { calculateMonthlyTiers } from '../lib/milestoneAnalytics';
+import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter, Trophy, AlertTriangle, Sparkles, Target, CheckCircle2, Award, ShieldCheck, Lock, Unlock } from 'lucide-react';
+import { calculateMonthlyTiers, setMonthlyDifficulty } from '../lib/milestoneAnalytics';
 
 export default function DashboardPage() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState('All');
+    const [difficultyTick, setDifficultyTick] = useState(0);
+
+    useEffect(() => {
+        const handleDifficultyChange = () => setDifficultyTick(t => t + 1);
+        window.addEventListener('coconut_difficulty_changed', handleDifficultyChange);
+        return () => window.removeEventListener('coconut_difficulty_changed', handleDifficultyChange);
+    }, []);
 
     const thaiMonths = [
         { id: 1, name: 'มกราคม' }, { id: 2, name: 'กุมภาพันธ์' }, { id: 3, name: 'มีนาคม' },
@@ -105,7 +112,7 @@ export default function DashboardPage() {
     // --- คำนวณ 3 ระดับเป้าหมายเชิงสถิติ (Data-Driven 3-Tiers) ---
     const tierData = useMemo(() => {
         return calculateMonthlyTiers(data, selectedYear, selectedMonth);
-    }, [data, selectedYear, selectedMonth]);
+    }, [data, selectedYear, selectedMonth, difficultyTick]);
 
     // --- สรุปภาพรวมเชิงบวก & ไฮไลต์ผลงาน ---
     const positiveInsight = useMemo(() => {
@@ -281,55 +288,144 @@ export default function DashboardPage() {
                     )}
 
                     {/* บล็อก 3 ลำดับขั้นสถิติ (3-Tier Milestones) */}
-                    <div className="bg-white/90 backdrop-blur-xs p-3.5 rounded-lg border border-emerald-100 shadow-2xs space-y-3">
-                        {/* ส่วนหัวของหมุดหมาย */}
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1.5 font-bold text-gray-800">
-                                <Target size={15} className="text-emerald-600" />
-                                หมุดหมาย 3 ระดับ{tierData.periodLabel}
-                            </span>
-                            <span className="text-[11px] text-gray-500 font-medium">
-                                สะสมรอบนี้: <strong className="text-emerald-700 font-bold">{formatNumber(tierData.currentQty)}</strong> ลูก
+                    <div className="bg-white/95 backdrop-blur-xs p-3.5 rounded-xl border border-gray-200 shadow-2xs space-y-3.5">
+                        {/* ส่วนหัวของหมุดหมาย: ชื่อรอบ + ระดับความยาก */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2.5 border-b border-gray-100">
+                            <div>
+                                <div className="flex items-center gap-1.5 font-bold text-gray-800 text-sm">
+                                    <Target size={16} className="text-emerald-600 shrink-0" />
+                                    <span>หมุดหมาย 3 ระดับ{tierData.periodLabel}</span>
+                                </div>
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                    {tierData.difficultyInfo.desc}
+                                </p>
+                            </div>
+
+                            {/* ป้ายหรือตัวเลือกระดับความยาก */}
+                            {tierData.canChangeDifficulty ? (
+                                <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-200 shrink-0">
+                                    <span className="text-[10px] text-gray-500 font-medium px-1 flex items-center gap-1">
+                                        <Unlock size={11} className="text-teal-600" /> ตั้งค่าวันที่ 1:
+                                    </span>
+                                    {[
+                                        { key: 'easy', label: 'ผ่อนคลาย' },
+                                        { key: 'standard', label: 'มาตรฐาน' },
+                                        { key: 'hard', label: 'ท้าทาย' }
+                                    ].map(d => (
+                                        <button
+                                            key={d.key}
+                                            onClick={() => setMonthlyDifficulty(tierData.yearNum, tierData.monthNum, d.key)}
+                                            className={`text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer transition ${
+                                                tierData.difficulty === d.key
+                                                    ? 'bg-emerald-600 text-white shadow-2xs'
+                                                    : 'text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {d.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-md border shrink-0 ${tierData.difficultyInfo.badgeClass}`}>
+                                    <Lock size={12} className="shrink-0" />
+                                    <span>{tierData.difficultyInfo.label} (ล็อคตลอดเดือน)</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* แถบระดับยศสูงสุดที่ได้รับ (Rank Standing Banner) */}
+                        <div className="flex items-center justify-between p-2.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white rounded-lg border border-emerald-200 shadow-2xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className={`p-1.5 rounded-md shrink-0 ${tierData.completedCount > 0 ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-500'}`}>
+                                    <ShieldCheck size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] text-gray-500 font-medium">ระดับผลงานที่พิชิตได้ในรอบนี้</p>
+                                    <p className="text-xs font-bold text-gray-800 truncate">{tierData.rankTitle}</p>
+                                </div>
+                            </div>
+                            <span className="text-[11px] font-bold text-emerald-700 shrink-0 ml-2">
+                                สะสม {formatNumber(tierData.currentQty)} ลูก
                             </span>
                         </div>
 
-                        {/* กล่องแสดงผล 3 Tiers */}
+                        {/* การ์ดแสดงผล 3 Tiers (แยกสีตามระดับขั้นชัดเจน พร้อมตราประทับเกียรติยศ) */}
                         <div className="grid grid-cols-3 gap-2">
                             {tierData.tiers.map((t) => {
                                 const isCurrentActive = tierData.activeTier.id === t.id && !tierData.allCompleted;
+                                const isTier1 = t.id === 'tier1';
+                                const isTier2 = t.id === 'tier2';
+                                const isTier3 = t.id === 'tier3';
+
                                 return (
                                     <div
                                         key={t.id}
-                                        className={`p-2.5 rounded-lg border text-center transition-all ${
+                                        className={`p-2.5 rounded-xl border text-center transition-all flex flex-col justify-between ${
                                             t.achieved
-                                                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 shadow-2xs'
+                                                ? 'bg-gradient-to-b from-emerald-50 to-teal-50/80 border-2 border-emerald-500 text-emerald-950 shadow-xs'
                                                 : isCurrentActive
-                                                ? 'bg-white border-teal-500 ring-2 ring-teal-100 shadow-xs'
-                                                : 'bg-gray-50/60 border-gray-200 text-gray-400'
+                                                ? isTier1
+                                                    ? 'bg-white border-2 border-amber-500 ring-2 ring-amber-100 shadow-xs'
+                                                    : isTier2
+                                                    ? 'bg-white border-2 border-blue-500 ring-2 ring-blue-100 shadow-xs'
+                                                    : 'bg-white border-2 border-yellow-500 ring-2 ring-yellow-100 shadow-xs'
+                                                : 'bg-gray-50/60 border border-gray-200 text-gray-400'
                                         }`}
                                     >
-                                        <div className="flex items-center justify-center gap-1 mb-1">
+                                        <div>
+                                            {/* แถบตราประทับสถานะ */}
                                             {t.achieved ? (
-                                                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                                                <div className="flex items-center justify-center gap-1 bg-emerald-600 text-white font-extrabold text-[10px] py-1 px-1.5 rounded-md mb-2 shadow-2xs">
+                                                    <ShieldCheck size={12} className="shrink-0" />
+                                                    <span>พิชิตสำเร็จ 100%</span>
+                                                </div>
+                                            ) : isCurrentActive ? (
+                                                <div className={`flex items-center justify-center gap-1 font-bold text-[10px] py-0.5 px-1.5 rounded-md mb-2 ${
+                                                    isTier1 ? 'bg-amber-600 text-white' : isTier2 ? 'bg-blue-600 text-white' : 'bg-yellow-600 text-white'
+                                                }`}>
+                                                    <Target size={11} className="shrink-0 animate-pulse" />
+                                                    <span>กำลังพิชิตขั้นนี้</span>
+                                                </div>
                                             ) : (
-                                                <span className={`w-1.5 h-1.5 rounded-full ${isCurrentActive ? 'bg-teal-500 animate-pulse' : 'bg-gray-300'}`} />
+                                                <div className="flex items-center justify-center gap-1 bg-gray-100 text-gray-400 font-medium text-[9px] py-0.5 px-1 rounded-md mb-2">
+                                                    <Award size={10} className="shrink-0" />
+                                                    <span>ขั้นถัดไป</span>
+                                                </div>
                                             )}
-                                            <span className={`text-[11px] font-bold ${t.achieved ? 'text-emerald-800' : isCurrentActive ? 'text-teal-700' : 'text-gray-500'}`}>
-                                                {t.label}
-                                            </span>
+
+                                            <div className="mb-0.5">
+                                                <span className={`text-[11px] font-bold ${
+                                                    t.achieved
+                                                        ? 'text-emerald-900'
+                                                        : isCurrentActive
+                                                        ? isTier1 ? 'text-amber-900' : isTier2 ? 'text-blue-900' : 'text-yellow-900'
+                                                        : 'text-gray-400'
+                                                }`}>
+                                                    {t.label}
+                                                </span>
+                                            </div>
+                                            <p className={`text-xs font-black ${
+                                                t.achieved
+                                                    ? 'text-emerald-700'
+                                                    : isCurrentActive
+                                                    ? 'text-gray-800'
+                                                    : 'text-gray-400'
+                                            }`}>
+                                                {formatNumber(t.target)} ลูก
+                                            </p>
                                         </div>
-                                        <p className={`text-xs font-extrabold ${t.achieved ? 'text-emerald-700' : isCurrentActive ? 'text-gray-800' : 'text-gray-500'}`}>
-                                            {formatNumber(t.target)} ลูก
+
+                                        <p className="text-[9px] mt-1.5 font-semibold">
+                                            {t.achieved ? (
+                                                <span className="text-emerald-700">ผ่านเกณฑ์สมบูรณ์</span>
+                                            ) : isCurrentActive ? (
+                                                <span className={isTier1 ? 'text-amber-700' : isTier2 ? 'text-blue-700' : 'text-yellow-700'}>
+                                                    ขาดอีก {formatNumber(tierData.remaining)} ลูก
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400">รอดำเนินการ</span>
+                                            )}
                                         </p>
-                                        <span className={`inline-block text-[9px] mt-1 px-1.5 py-0.5 rounded-sm font-medium ${
-                                            t.achieved
-                                                ? 'bg-emerald-200/70 text-emerald-800'
-                                                : isCurrentActive
-                                                ? 'bg-teal-100 text-teal-800'
-                                                : 'bg-gray-100 text-gray-400'
-                                        }`}>
-                                            {t.achieved ? 'สำเร็จแล้ว' : isCurrentActive ? 'กำลังมุ่งสู่' : 'ขั้นถัดไป'}
-                                        </span>
                                     </div>
                                 );
                             })}
@@ -337,9 +433,9 @@ export default function DashboardPage() {
 
                         {/* แถบความก้าวหน้าสู่ขั้นถัดไป หรือฉลองครบ 3 ขั้น */}
                         {tierData.allCompleted ? (
-                            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-2.5 rounded-lg text-white text-center shadow-xs">
+                            <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-3 rounded-xl text-white text-center shadow-xs">
                                 <p className="text-xs font-bold flex items-center justify-center gap-1.5">
-                                    <Award size={15} />
+                                    <Award size={16} />
                                     พิชิตครบทั้ง 3 ขั้นสำเร็จเรียบร้อย ยอดเยี่ยมมาก
                                 </p>
                                 <p className="text-[11px] text-emerald-100 mt-0.5">
@@ -347,18 +443,19 @@ export default function DashboardPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div>
+                            <div className="bg-gray-50/80 p-2.5 rounded-lg border border-gray-200">
                                 <div className="flex items-center justify-between text-[11px] mb-1">
-                                    <span className="font-semibold text-gray-700">
-                                        ก้าวสู่{tierData.activeTier.label} ({formatNumber(tierData.activeTier.target)} ลูก)
+                                    <span className="font-semibold text-gray-700 flex items-center gap-1">
+                                        <Target size={13} className="text-teal-600" />
+                                        มุ่งสู่{tierData.activeTier.label} (เป้าหมาย {formatNumber(tierData.activeTier.target)} ลูก)
                                     </span>
-                                    <span className="font-semibold text-teal-700">
+                                    <span className="font-bold text-teal-700">
                                         ขาดอีก {formatNumber(tierData.remaining)} ลูก
                                     </span>
                                 </div>
-                                <div className="w-full bg-emerald-100/70 rounded-full h-2 overflow-hidden">
+                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                                     <div
-                                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                                        className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
                                         style={{ width: `${tierData.progress}%` }}
                                     />
                                 </div>
