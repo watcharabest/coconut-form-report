@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, LabelList
 } from 'recharts';
-import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter, ArrowUpRight, ArrowDownRight, Trophy, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter, Trophy, AlertTriangle, Sparkles, Target, CheckCircle2, Award } from 'lucide-react';
 
 export default function DashboardPage() {
     const [data, setData] = useState([]);
@@ -97,16 +97,69 @@ export default function DashboardPage() {
         return { totalRevenue, totalProfit, totalQty, avgProfitPerUnit, marginPct };
     }, [filteredData]);
 
-    // --- เปรียบเทียบเดือนนี้ vs เดือนก่อน ---
-    const monthComparison = useMemo(() => {
-        if (monthlyData.length < 2) return null;
-        const current = monthlyData[monthlyData.length - 1];
-        const prev = monthlyData[monthlyData.length - 2];
-        const revChange = prev.totalRevenue > 0 ? ((current.totalRevenue - prev.totalRevenue) / prev.totalRevenue) * 100 : 0;
-        const profitChange = prev.netProfit > 0 ? ((current.netProfit - prev.netProfit) / prev.netProfit) * 100 : 0;
-        const qtyChange = prev.totalQty > 0 ? ((current.totalQty - prev.totalQty) / prev.totalQty) * 100 : 0;
-        return { currentName: current.name, prevName: prev.name, revChange, profitChange, qtyChange };
-    }, [monthlyData]);
+    // --- สรุปภาพรวมเชิงบวก & หมุดหมายความสำเร็จ ---
+    const positiveInsight = useMemo(() => {
+        const { totalQty, totalProfit, marginPct, avgProfitPerUnit } = summary;
+
+        if (totalQty === 0) {
+            return {
+                title: 'พร้อมเริ่มต้นบันทึกผลประกอบการ',
+                subtitle: 'บันทึกรายการขายเพื่อติดตามการเติบโตและความสำเร็จของธุรกิจ',
+                badges: [],
+                nextTarget: 500,
+                progress: 0,
+                remaining: 500,
+                totalQty: 0,
+            };
+        }
+
+        // ข้อความไฮไลต์เชิงบวกตามผลงานที่โดดเด่น
+        let title = 'การดำเนินงานมีความก้าวหน้าที่มั่นคง';
+        let subtitle = 'ยอดขายและผลประกอบการขับเคลื่อนธุรกิจไปข้างหน้าอย่างต่อเนื่อง';
+
+        if (marginPct >= 35) {
+            title = 'ประสิทธิภาพการบริหารต้นทุนยอดเยี่ยม';
+            subtitle = `ทำกำไรเฉลี่ยได้ถึง ฿${avgProfitPerUnit.toFixed(1)} ต่อลูก คิดเป็นอัตรากำไร ${marginPct.toFixed(1)}%`;
+        } else if (totalQty >= 2000) {
+            title = 'ยอดกระจายผลผลิตคึกคักอย่างโดดเด่น';
+            subtitle = `ส่งมอบผลผลิตไปแล้วถึง ${totalQty.toLocaleString('th-TH')} ลูก สร้างการหมุนเวียนต่อเนื่อง`;
+        } else if (totalProfit > 0) {
+            title = 'สร้างผลกำไรสุทธิได้อย่างต่อเนื่อง';
+            subtitle = `สะสมกำไรสุทธิในรอบนี้รวม ฿${totalProfit.toLocaleString('th-TH')} จากความมุ่งมั่นในทุกขั้นตอน`;
+        }
+
+        // เหรียญความสำเร็จเชิงบวก (แสดงเฉพาะเมื่อผ่านเกณฑ์ ไม่มีการติดลบ)
+        const badges = [];
+        if (marginPct >= 30) {
+            badges.push({ id: 'margin', label: 'บริหารกำไรดีเยี่ยม', desc: `Margin ${marginPct.toFixed(1)}%` });
+        }
+        if (totalQty >= 500) {
+            badges.push({ id: 'volume', label: 'ผลผลิตทะลุเป้า', desc: `${totalQty.toLocaleString('th-TH')} ลูก` });
+        }
+        if (totalProfit > 0) {
+            badges.push({ id: 'profit', label: 'ผลประกอบการเป็นบวก', desc: 'กำไรสุทธิเติบโต' });
+        }
+        if (avgProfitPerUnit >= 5) {
+            badges.push({ id: 'unitProfit', label: 'มูลค่าต่อหน่วยสูง', desc: `฿${avgProfitPerUnit.toFixed(1)}/ลูก` });
+        }
+
+        // หมุดหมายถัดไป (Milestone)
+        const milestoneSteps = [200, 500, 1000, 2000, 3000, 5000, 10000, 15000, 20000, 30000, 50000];
+        const nextTarget = milestoneSteps.find(step => step > totalQty) || (Math.ceil(totalQty / 5000) + 1) * 5000;
+        const prevTarget = milestoneSteps.filter(step => step <= totalQty).pop() || 0;
+        const progress = Math.min(100, Math.max(5, Math.round(((totalQty - prevTarget) / (nextTarget - prevTarget)) * 100)));
+        const remaining = Math.max(0, nextTarget - totalQty);
+
+        return {
+            title,
+            subtitle,
+            badges,
+            nextTarget,
+            progress,
+            remaining,
+            totalQty,
+        };
+    }, [summary]);
 
     // --- วันขายดีที่สุด ---
     const bestWorstDays = useMemo(() => {
@@ -191,24 +244,65 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* --- เปรียบเทียบเดือนนี้ vs เดือนก่อน --- */}
-            {monthComparison && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                    <h2 className="text-sm font-bold text-gray-700 mb-3">เทียบกับเดือนก่อน ({monthComparison.prevName} → {monthComparison.currentName})</h2>
-                    <div className="grid grid-cols-3 gap-2">
-                        {[
-                            { label: 'รายได้', val: monthComparison.revChange },
-                            { label: 'กำไร', val: monthComparison.profitChange },
-                            { label: 'จำนวน', val: monthComparison.qtyChange },
-                        ].map(({ label, val }) => (
-                            <div key={label} className="text-center">
-                                <p className="text-xs text-gray-500">{label}</p>
-                                <div className={`flex items-center justify-center gap-1 font-bold text-sm ${val >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                    {val >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                                    {val >= 0 ? '+' : ''}{val.toFixed(1)}%
-                                </div>
+            {/* --- บล็อกข้อความเชิงบวกและหมุดหมายความสำเร็จ --- */}
+            {positiveInsight && (
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 rounded-xl shadow-sm border border-emerald-200">
+                    <div className="flex items-start gap-3 mb-3">
+                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0 mt-0.5">
+                            <Sparkles size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-600 text-white tracking-wide">
+                                    ไฮไลต์ผลงาน
+                                </span>
                             </div>
-                        ))}
+                            <h2 className="text-sm font-bold text-gray-800 leading-snug">
+                                {positiveInsight.title}
+                            </h2>
+                            <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
+                                {positiveInsight.subtitle}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* รายการเหรียญความสำเร็จ */}
+                    {positiveInsight.badges.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3 pt-2.5 border-t border-emerald-100/80">
+                            {positiveInsight.badges.map(b => (
+                                <span
+                                    key={b.id}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-white text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-200 shadow-xs"
+                                >
+                                    <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                                    <span>{b.label}</span>
+                                    <span className="text-emerald-600 font-semibold text-[10px]">({b.desc})</span>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* แถบวัดความก้าวหน้าสู่เป้าหมายถัดไป */}
+                    <div className="bg-white/90 backdrop-blur-xs p-3 rounded-lg border border-emerald-100 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="flex items-center gap-1.5 font-semibold text-gray-700">
+                                <Target size={14} className="text-emerald-600" />
+                                มุ่งสู่เป้าหมาย {formatNumber(positiveInsight.nextTarget)} ลูก
+                            </span>
+                            <span className="text-xs font-semibold text-emerald-700">
+                                ขาดอีก {formatNumber(positiveInsight.remaining)} ลูก
+                            </span>
+                        </div>
+                        <div className="w-full bg-emerald-100/70 rounded-full h-2 overflow-hidden">
+                            <div
+                                className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${positiveInsight.progress}%` }}
+                            />
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1.5">
+                            <span>ยอดสะสมปัจจุบัน: {formatNumber(positiveInsight.totalQty)} ลูก</span>
+                            <span>{positiveInsight.progress}% ของช่วงเป้าหมาย</span>
+                        </div>
                     </div>
                 </div>
             )}
