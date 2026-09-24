@@ -9,7 +9,7 @@ import { LayoutDashboard, TrendingUp, TrendingDown, DollarSign, Package, Filter,
 export default function DashboardPage() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedYear, setSelectedYear] = useState('All');
+    const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState('All');
 
     const thaiMonths = [
@@ -41,7 +41,11 @@ export default function DashboardPage() {
     };
 
     const availableYears = useMemo(() => {
+        const currentYearNum = new Date().getFullYear();
         const years = [...new Set(data.map(item => new Date(item['วันที่']).getFullYear()))];
+        if (!years.includes(currentYearNum)) {
+            years.push(currentYearNum);
+        }
         return years.sort((a, b) => b - a);
     }, [data]);
 
@@ -101,21 +105,30 @@ export default function DashboardPage() {
     const positiveInsight = useMemo(() => {
         const { totalQty, totalProfit, marginPct, avgProfitPerUnit } = summary;
 
+        // ระบุรอบเป้าหมาย (สปรินต์ประจำเดือน หรือเป้าหมายประจำปี)
+        const currentMonthObj = selectedMonth !== 'All'
+            ? thaiMonths.find(m => m.id === parseInt(selectedMonth))
+            : null;
+        const targetPeriodLabel = currentMonthObj
+            ? `ประจำเดือน${currentMonthObj.name}`
+            : (selectedYear !== 'All' ? `ประจำปี ${parseInt(selectedYear) + 543}` : 'ภาพรวม');
+
         if (totalQty === 0) {
             return {
                 title: 'พร้อมเริ่มต้นบันทึกผลประกอบการ',
-                subtitle: 'บันทึกรายการขายเพื่อติดตามการเติบโตและความสำเร็จของธุรกิจ',
+                subtitle: `เริ่มต้นบันทึกรายการขาย${targetPeriodLabel} เพื่อติดตามการเติบโตของธุรกิจ`,
                 badges: [],
-                nextTarget: 500,
+                targetPeriodLabel,
+                nextTarget: selectedMonth !== 'All' ? 500 : 2000,
                 progress: 0,
-                remaining: 500,
+                remaining: selectedMonth !== 'All' ? 500 : 2000,
                 totalQty: 0,
             };
         }
 
         // ข้อความไฮไลต์เชิงบวกตามผลงานที่โดดเด่น
         let title = 'การดำเนินงานมีความก้าวหน้าที่มั่นคง';
-        let subtitle = 'ยอดขายและผลประกอบการขับเคลื่อนธุรกิจไปข้างหน้าอย่างต่อเนื่อง';
+        let subtitle = `ยอดขายและผลประกอบการ${targetPeriodLabel} ขับเคลื่อนธุรกิจไปข้างหน้าอย่างต่อเนื่อง`;
 
         if (marginPct >= 35) {
             title = 'ประสิทธิภาพการบริหารต้นทุนยอดเยี่ยม';
@@ -133,7 +146,7 @@ export default function DashboardPage() {
         if (marginPct >= 30) {
             badges.push({ id: 'margin', label: 'บริหารกำไรดีเยี่ยม', desc: `Margin ${marginPct.toFixed(1)}%` });
         }
-        if (totalQty >= 500) {
+        if (totalQty >= (selectedMonth !== 'All' ? 300 : 1000)) {
             badges.push({ id: 'volume', label: 'ผลผลิตทะลุเป้า', desc: `${totalQty.toLocaleString('th-TH')} ลูก` });
         }
         if (totalProfit > 0) {
@@ -143,10 +156,14 @@ export default function DashboardPage() {
             badges.push({ id: 'unitProfit', label: 'มูลค่าต่อหน่วยสูง', desc: `฿${avgProfitPerUnit.toFixed(1)}/ลูก` });
         }
 
-        // หมุดหมายถัดไป (Milestone)
-        const milestoneSteps = [200, 500, 1000, 2000, 3000, 5000, 10000, 15000, 20000, 30000, 50000];
-        const nextTarget = milestoneSteps.find(step => step > totalQty) || (Math.ceil(totalQty / 5000) + 1) * 5000;
-        const prevTarget = milestoneSteps.filter(step => step <= totalQty).pop() || 0;
+        // บันไดเป้าหมายระยะสั้น (Short-term Sprint Steps)
+        const sprintSteps = selectedMonth !== 'All'
+            ? [300, 500, 800, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000]
+            : [1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000];
+
+        const nextTarget = sprintSteps.find(step => step > totalQty)
+            || (Math.ceil(totalQty / (selectedMonth !== 'All' ? 1000 : 5000)) + 1) * (selectedMonth !== 'All' ? 1000 : 5000);
+        const prevTarget = sprintSteps.filter(step => step <= totalQty).pop() || 0;
         const progress = Math.min(100, Math.max(5, Math.round(((totalQty - prevTarget) / (nextTarget - prevTarget)) * 100)));
         const remaining = Math.max(0, nextTarget - totalQty);
 
@@ -154,12 +171,13 @@ export default function DashboardPage() {
             title,
             subtitle,
             badges,
+            targetPeriodLabel,
             nextTarget,
             progress,
             remaining,
             totalQty,
         };
-    }, [summary]);
+    }, [summary, selectedMonth, selectedYear]);
 
     // --- วันขายดีที่สุด ---
     const bestWorstDays = useMemo(() => {
@@ -282,12 +300,12 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* แถบวัดความก้าวหน้าสู่เป้าหมายถัดไป */}
+                    {/* แถบวัดความก้าวหน้าสู่เป้าหมายระยะสั้น */}
                     <div className="bg-white/90 backdrop-blur-xs p-3 rounded-lg border border-emerald-100 shadow-2xs">
                         <div className="flex items-center justify-between text-xs mb-1.5">
                             <span className="flex items-center gap-1.5 font-semibold text-gray-700">
                                 <Target size={14} className="text-emerald-600" />
-                                มุ่งสู่เป้าหมาย {formatNumber(positiveInsight.nextTarget)} ลูก
+                                เป้าหมาย{positiveInsight.targetPeriodLabel} {formatNumber(positiveInsight.nextTarget)} ลูก
                             </span>
                             <span className="text-xs font-semibold text-emerald-700">
                                 ขาดอีก {formatNumber(positiveInsight.remaining)} ลูก
@@ -300,8 +318,8 @@ export default function DashboardPage() {
                             />
                         </div>
                         <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1.5">
-                            <span>ยอดสะสมปัจจุบัน: {formatNumber(positiveInsight.totalQty)} ลูก</span>
-                            <span>{positiveInsight.progress}% ของช่วงเป้าหมาย</span>
+                            <span>ยอดในรอบนี้: {formatNumber(positiveInsight.totalQty)} ลูก</span>
+                            <span>{positiveInsight.progress}% สู่หมุดหมายถัดไป</span>
                         </div>
                     </div>
                 </div>
